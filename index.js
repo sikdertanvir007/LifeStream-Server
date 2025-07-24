@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-
+const { ObjectId } = require('mongodb');
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -33,6 +33,24 @@ async function run() {
       const result = await donationRequestsCollection.find().toArray();
       res.send(result);
     });
+
+app.get("/donation-requests/:id", async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await donationRequestsCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!result) {
+      return res.status(404).send({ message: "Donation request not found" });
+    }
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Invalid ID or server error", error: error.message });
+  }
+});
+
+
 
     // ✅ POST a new donation request
     app.post("/donation-requests", async (req, res) => {
