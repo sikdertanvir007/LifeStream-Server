@@ -31,6 +31,7 @@ async function run() {
     const db = client.db("lifeStreamDB");
     const donationRequestsCollection = db.collection("donationRequests");
     const fundingsCollection = db.collection("fundings");
+    const usersCollection = db.collection('users');
 
     // ✅ GET all donation requests
     app.get("/donation-requests", async (req, res) => {
