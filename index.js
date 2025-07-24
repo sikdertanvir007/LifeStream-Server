@@ -2,8 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const { ObjectId } = require('mongodb');
+
 dotenv.config();
+
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY); // Replace with your actual Stripe secret key
+
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -27,6 +30,7 @@ async function run() {
 
     const db = client.db("lifeStreamDB");
     const donationRequestsCollection = db.collection("donationRequests");
+    const fundingsCollection = db.collection("fundings");
 
     // ✅ GET all donation requests
     app.get("/donation-requests", async (req, res) => {
@@ -34,21 +38,7 @@ async function run() {
       res.send(result);
     });
 
-app.get("/donation-requests/:id", async (req, res) => {
-  const id = req.params.id;
 
-  try {
-    const result = await donationRequestsCollection.findOne({ _id: new ObjectId(id) });
-
-    if (!result) {
-      return res.status(404).send({ message: "Donation request not found" });
-    }
-
-    res.send(result);
-  } catch (error) {
-    res.status(500).send({ message: "Invalid ID or server error", error: error.message });
-  }
-});
 
 
 
@@ -119,6 +109,49 @@ app.delete("/donation-requests/:id", async (req, res) => {
   const result = await donationRequestsCollection.deleteOne({ _id: new ObjectId(id) });
   res.send(result);
 });
+
+
+// GET: /user-fundings?email=user@example.com&page=1&limit=10
+app.get('/user-fundings', async (req, res) => {
+  const { email, page = 1, limit = 10 } = req.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  const query = { email };
+  const total = await fundingsCollection.countDocuments(query);
+  const fundings = await fundingsCollection.find(query)
+    .sort({ date: -1 })
+    .skip(skip)
+    .limit(parseInt(limit))
+    .toArray();
+
+  res.send({ fundings, total });
+});
+
+
+app.post('/fundings', async (req, res) => {
+  const funding = req.body; // contains name, email, amount, date
+  const result = await fundingsCollection.insertOne(funding);
+  res.send(result);
+});
+
+app.post('/create-payment', async (req, res) => {
+  const { amount } = req.body;
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: parseInt(amount * 100), // Stripe works in cents
+    currency: 'usd',
+    payment_method_types: ['card'],
+  });
+
+  res.send({ clientSecret: paymentIntent.client_secret });
+});
+
+
+
+
+
+
+
+
 
     // ✅ Confirm MongoDB connection
     await client.db("admin").command({ ping: 1 });
