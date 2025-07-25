@@ -207,6 +207,24 @@ app.post('/create-payment', async (req, res) => {
 });
 
 
+//Profile related api's
+
+app.get('/users', async (req, res) => {
+  const { email } = req.query;
+  const user = await usersCollection.findOne({ email });
+  res.send(user);
+});
+
+app.put('/users/:email', async (req, res) => {
+  const { email } = req.params;
+  const updatedData = req.body;
+  const result = await usersCollection.updateOne(
+    { email },
+    { $set: updatedData }
+  );
+  res.send(result);
+});
+
 
 
 
