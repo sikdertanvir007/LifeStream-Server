@@ -236,6 +236,25 @@ app.get('/users', verifyFBToken, async (req, res) => {
 });
 
 
+// PATCH to update user's status or role (block/unblock/make-volunteer/make-admin)
+app.patch('/users/:id', verifyFBToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;  // { status: 'blocked' } or { role: 'admin' }
+
+    if (!ObjectId.isValid(id)) return res.status(400).send({ message: 'Invalid user id' });
+
+    const result = await usersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
 
 //Profile related api's
 
