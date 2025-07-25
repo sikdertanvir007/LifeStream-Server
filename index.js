@@ -45,6 +45,7 @@ async function run() {
     const donationRequestsCollection = db.collection("donationRequests");
     const fundingsCollection = db.collection("fundings");
     const usersCollection = db.collection('users');
+    const blogsCollection = db.collection('blogs')
 
 
 //custom middlewares
@@ -453,6 +454,111 @@ app.get('/donation-requests/count', verifyFBToken,  async (req, res) => {
   }
 });
 
+
+app.get('/users/status', verifyFBToken, async (req, res) => {
+  const email = req.query.email;
+  const user = await usersCollection.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  res.send({ status: user.status || 'active' });
+});
+
+
+
+app.post('/blogs', verifyFBToken, async (req, res) => {
+  const blog = {
+    ...req.body,
+    status: 'draft',
+    createdAt: new Date(),
+    author: {
+      name: req.decoded.name,
+      email: req.decoded.email
+    }
+  };
+  const result = await blogsCollection.insertOne(blog);
+  res.send(result);
+});
+
+
+app.get('/blogs', async (req, res) => {
+  const status = req.query.status;
+  const filter = status ? { status } : {};
+  const blogs = await blogsCollection.find(filter).sort({ createdAt: -1 }).toArray();
+  res.send(blogs);
+});
+
+app.get('/blogs/:id', async (req, res) => {
+  const blog = await blogsCollection.findOne({ _id: new ObjectId(req.params.id) });
+  res.send(blog);
+});
+
+
+// Example in Express backend
+app.patch('/blogs/:id/status', verifyFBToken, async (req, res) => {
+  try {
+    const blogId = req.params.id;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+
+    const result = await blogsCollection.updateOne(
+      { _id: new ObjectId(blogId) },
+      { $set: { status } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: 'Blog not found or already has this status' });
+    }
+
+    res.send({ message: 'Blog status updated successfully' });
+  } catch (err) {
+    console.error('PATCH /blogs/:id/status error:', err); // This should show in terminal
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
+
+app.patch('/blogs/:id', verifyFBToken, async (req, res) => {
+  const { title, thumbnail, content } = req.body;
+  const result = await blogsCollection.updateOne(
+    { _id: new ObjectId(req.params.id), 'author.email': req.decoded.email },
+    { $set: { title, thumbnail, content } }
+  );
+  res.send(result);
+});
+
+
+
+// Define inside run()
+const getUserByEmail = async (email) => {
+  return await usersCollection.findOne({ email });
+};
+
+// Delete route
+app.delete('/blogs/:id', verifyFBToken, async (req, res) => {
+  try {
+    const user = await getUserByEmail(req.decoded.email);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).send({ message: 'Forbidden' });
+    }
+
+    const result = await blogsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).send({ message: 'Blog not found' });
+    }
+
+    res.send({ message: 'Blog deleted successfully' });
+  } catch (error) {
+    console.error('DELETE error:', error);
+    res.status(500).send({ message: 'Server error', error: error.message });
+  }
+});
 
 
 
