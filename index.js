@@ -70,6 +70,29 @@ const verifyFBToken = async (req, res, next) => {
 
 
 
+// GET route to fetch role by email
+app.get('/users/role/:email', verifyFBToken, async (req, res) => {
+  const email = req.params.email;
+  const decodedEmail = req.decoded.email;
+
+  if (decodedEmail !== email) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+
+  try {
+    const user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ role: null });
+    }
+
+    res.status(200).json({ role: user.role }); // 'admin', 'volunteer', or 'donor'
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+});
+
+
 
 app.post('/users',async(req,res)=>{
     const email = req.body.email;
@@ -326,6 +349,63 @@ app.get('/public-donors', async (req, res) => {
 });
 
 
+// Public route: list all pending donation requests
+app.get('/public-donation-requests', async (req, res) => {
+  try {
+    const pendingRequests = await donationRequestsCollection
+      .find({ status: 'pending' })
+      .sort({ donationDate: -1 })
+      .toArray();
+    res.send(pendingRequests);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
+
+// Protected detail route
+app.get('/donation-requests/:id', verifyFBToken, async (req, res) => {
+  const { id } = req.params;
+  if (!ObjectId.isValid(id)) return res.status(400).send({ message: 'Invalid ID' });
+  try {
+    const request = await donationRequestsCollection.findOne({ _id: new ObjectId(id) });
+    if (!request) return res.status(404).send({ message: 'Request not found' });
+    res.send(request);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
+
+// Confirm donation by donor (status: pending → inprogress)
+app.patch('/donation-requests/donate/:id', verifyFBToken, async (req, res) => {
+  const { id } = req.params;
+  const { donorName, donorEmail } = req.body;
+
+  if (!ObjectId.isValid(id)) return res.status(400).send({ message: 'Invalid ID' });
+
+  try {
+    const result = await donationRequestsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: 'inprogress',
+          donorName,
+          donorEmail
+        }
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ message: 'Donation request not found or already in progress' });
+    }
+
+    res.send({ message: 'Donation confirmed successfully', result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
 
 
 
