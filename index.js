@@ -275,6 +275,35 @@ app.put('/api/users/:email', async (req, res) => {
 });
 
 
+// GET all donation requests (admin only, with pagination + status filter)
+app.get("/admin-donation-requests", verifyFBToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 5, status } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const query = {};
+    if (status) query.status = status;
+
+    const total = await donationRequestsCollection.countDocuments(query);
+    const requests = await donationRequestsCollection
+      .find(query)
+      .sort({ donationDate: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    res.send({
+      data: requests,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+    });
+  } catch (err) {
+    console.error("Error fetching admin donation requests:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 
 
 
