@@ -18,7 +18,7 @@ app.use(express.json());
 
 
 
-var serviceAccount = require("path/to/serviceAccountKey.json");
+const serviceAccount = require("./firebase-admin-key.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -47,20 +47,25 @@ async function run() {
 
 
 //custom middlewares
-const verifyFBToken = async (req,res,next) => {
-    const authHeader = req.headers.authorization;
-    if(!authHeader){
-        return res.status(401).send({message: 'unauthorized access'})
-    }
-    const token = authHeader.split('')[1];
-    if(!token){
-        return res.status(401).send({message: 'unauthorized access'})
-    }
+const verifyFBToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: 'unauthorized access' });
+  }
 
-    //verify the token 
+  const token = authHeader.split(' ')[1]; 
+  if (!token) {
+    return res.status(401).send({ message: 'unauthorized access' });
+  }
 
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.decoded = decoded;
     next();
-}
+  } catch (error) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+};
 
 
 
@@ -100,6 +105,10 @@ app.post('/users',async(req,res)=>{
     app.get("/my-donation-requests",verifyFBToken, async (req, res) => {
       try {
         const { email, status, page = 1, limit = 5 } = req.query;
+        console.log('decoded',req.decoded)
+        if(req.decoded.email !== email){
+            return res.status(403).send({message:"forbidden access"})
+        }
 
         if (!email) {
           return res.status(400).json({ error: "Email is required" });
@@ -159,8 +168,13 @@ app.delete("/donation-requests/:id", async (req, res) => {
 
 
 // GET: /user-fundings?email=user@example.com&page=1&limit=10
-app.get('/user-fundings', async (req, res) => {
+app.get('/user-fundings', verifyFBToken, async (req, res) => {
   const { email, page = 1, limit = 10 } = req.query;
+   console.log('decoded',req.decoded)
+        if(req.decoded.email !== email){
+            return res.status(403).send({message:"forbidden access"})
+        }
+  
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
   const query = { email };
