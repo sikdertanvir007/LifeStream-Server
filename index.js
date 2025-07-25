@@ -69,6 +69,16 @@ const verifyFBToken = async (req, res, next) => {
 };
 
 
+const verifyAdmin = async (req,res,next)=> {
+  const email = req.decoded.email;
+  const query = {email}
+  const user = await usersCollection.findOne(query);
+  if(!user || user.role !== 'admin'){
+    return res.status(403).send({message: 'forbidden access'})
+  }
+  next();
+}
+
 
 // GET route to fetch role by email
 app.get('/users/role/:email', verifyFBToken, async (req, res) => {
@@ -231,7 +241,7 @@ app.post('/create-payment', async (req, res) => {
 });
 
 // GET all users with pagination and filtering by status (active or blocked)
-app.get('/users', verifyFBToken, async (req, res) => {
+app.get('/users', verifyFBToken,verifyAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -407,6 +417,41 @@ app.patch('/donation-requests/donate/:id', verifyFBToken, async (req, res) => {
   }
 });
 
+
+
+// ✅ GET: Count total donors
+app.get('/users/count-donors', verifyFBToken,  async (req, res) => {
+  try {
+    const count = await usersCollection.countDocuments({ role: 'donor' });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to count donors', error: error.message });
+  }
+});
+
+// ✅ GET: Total funding amount
+app.get('/fundings/total-amount', verifyFBToken,  async (req, res) => {
+  try {
+    const result = await fundingsCollection.aggregate([
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]).toArray();
+
+    const totalAmount = result[0]?.total || 0;
+    res.json({ totalAmount });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get total funding amount', error: error.message });
+  }
+});
+
+// ✅ GET: Total number of donation requests
+app.get('/donation-requests/count', verifyFBToken,  async (req, res) => {
+  try {
+    const count = await donationRequestsCollection.countDocuments();
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to count donation requests', error: error.message });
+  }
+});
 
 
 
