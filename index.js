@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const admin = require("firebase-admin");
+const { ObjectId } = require("mongodb");
 
 dotenv.config();
 
@@ -206,16 +207,45 @@ app.post('/create-payment', async (req, res) => {
   res.send({ clientSecret: paymentIntent.client_secret });
 });
 
+// GET all users with pagination and filtering by status (active or blocked)
+app.get('/users', verifyFBToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const query = {};
+    if (status) query.status = status;  // filter by status
+
+    const total = await usersCollection.countDocuments(query);
+    const users = await usersCollection
+      .find(query)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+
+    res.send({
+      users,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+
 
 //Profile related api's
 
-app.get('/users', async (req, res) => {
+app.get('/api/users', async (req, res) => {
   const { email } = req.query;
   const user = await usersCollection.findOne({ email });
   res.send(user);
 });
 
-app.put('/users/:email', async (req, res) => {
+app.put('/api/users/:email', async (req, res) => {
   const { email } = req.params;
   const updatedData = req.body;
   const result = await usersCollection.updateOne(
