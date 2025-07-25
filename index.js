@@ -304,6 +304,28 @@ app.get("/admin-donation-requests", verifyFBToken, async (req, res) => {
   }
 });
 
+// ✅ Public Donor Search
+app.get('/public-donors', async (req, res) => {
+  try {
+    const { bloodGroup, district, upazila } = req.query;
+    const query = {
+      role: 'donor',
+      status: 'active'
+    };
+
+    if (bloodGroup) query.bloodGroup = bloodGroup;
+    if (district) query.district = district;
+    if (upazila) query.upazila = upazila;
+
+    const donors = await usersCollection.find(query).toArray();
+    res.send(donors);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Server Error' });
+  }
+});
+
+
 
 
 
