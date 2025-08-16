@@ -18,8 +18,8 @@ app.use(express.json());
 
 
 
-
-const serviceAccount = require("./firebase-admin-key.json");
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY,'base64').toString('utf8')
+const serviceAccount = JSON.parse(decodedKey);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -39,7 +39,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+   // await client.connect();
 
     const db = client.db("lifeStreamDB");
     const donationRequestsCollection = db.collection("donationRequests");
@@ -564,8 +564,8 @@ app.delete('/blogs/:id', verifyFBToken, async (req, res) => {
 
 
     // ✅ Confirm MongoDB connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("✅ Successfully connected to MongoDB!");
+    //await client.db("admin").command({ ping: 1 });
+   // console.log("✅ Successfully connected to MongoDB!");
   } finally {
     // Don't close the connection so it remains active while server runs
     // await client.close();
